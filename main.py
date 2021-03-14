@@ -10,8 +10,8 @@ from playsound import playsound
 medication_taken = False
 # webcam initialization
 webcamCapture = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-webcamCapture.set(3, 1080)
-webcamCapture.set(4, 720)
+webcamCapture.set(3, 1920)
+webcamCapture.set(4, 1080)
 # coco class names initialization
 classNames = []
 classFile = 'coco.names'
@@ -26,7 +26,8 @@ box_coordinates = []
 # path locations for object detection
 configPath = 'ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt'
 weightsPath = 'frozen_inference_graph.pb'
-# model initialization
+# neural network initializations
+# model initialization of neural network for object detection
 net = cv2.dnn_DetectionModel(weightsPath, configPath)
 net.setInputSize(1080, 720)
 net.setInputScale(1.0 / 127.5)
@@ -34,6 +35,18 @@ net.setInputMean((127.5, 127.5, 127.5))
 net.setInputSwapRB(True)
 # how many times to run through detection loop, change for more loops
 repeat_tolerance = 5
+
+
+# initialize body parts and pairs of said parts
+BODY_PARTS = {"Nose": 0, "Neck": 1, "RShoulder": 2, "RElbow": 3, "RWrist": 4,
+              "LShoulder": 5, "LElbow": 6, "LWrist": 7, "RHip": 8, "RKnee": 9,
+              "RAnkle": 10, "LHip": 11, "LKnee": 12, "LAnkle": 13, "REye": 14,
+              "LEye": 15, "REar": 16, "LEar": 17, "Background": 18}
+POSE_PAIRS = [["Neck", "RShoulder"], ["Neck", "LShoulder"], ["RShoulder", "RElbow"],
+              ["RElbow", "RWrist"], ["LShoulder", "LElbow"], ["LElbow", "LWrist"],
+              ["Neck", "RHip"], ["RHip", "RKnee"], ["RKnee", "RAnkle"], ["Neck", "LHip"],
+              ["LHip", "LKnee"], ["LKnee", "LAnkle"], ["Neck", "Nose"], ["Nose", "REye"],
+              ["REye", "REar"], ["Nose", "LEye"], ["LEye", "LEar"]]
 
 
 # alert sending function
@@ -55,8 +68,8 @@ def objectDetector(n):
     for i in range(n):
         success, img = webcamCapture.read()
         class_ids, confidence_values, bounding_box = net.detect(img, threshold)
-        print("Class ID = " + str(class_ids) #+ " || ", "Confidence =" + str(confidence_values)
-              + "%  ||", "Coordinates " + str(bounding_box))
+        print("Class ID = " + str(class_ids) # + " || ", "Confidence =" + str(confidence_values)
+              + "||", "Coordinates " + str(bounding_box))
 
         if len(class_ids) != 0:
             for classId, confidence, box in zip(class_ids.flatten(), confidence_values.flatten(), bounding_box):
@@ -72,6 +85,11 @@ def objectDetector(n):
         cv2.waitKey(5)
 
 
+def poseEstimation(n):
+    for i in range(n):
+        break
+
+
 def medDetection():
     print("HEAD")
     objectDetector(repeat_tolerance)
@@ -82,7 +100,7 @@ def medDetection():
         print('***************')
         print(box_coordinates)
         print('***************')
-        #  skeletalEstimator()
+        poseEstimation(repeat_tolerance)
         # left arm point and right arm point
         # left_hand = ''
         # right_hand = ''
