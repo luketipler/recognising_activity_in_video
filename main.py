@@ -183,4 +183,30 @@ def test():
     result.release()
 
 
-test()
+def gui():
+    print("|**********************************************|")
+    print("| Please enter a number to select the option:  |")
+    print("| 1. Run Program                               |")
+    print("| 2. Show Schedule                             |")
+    print("| 3. Add to Schedule                           |")
+    print("| 3. Remove from Schedule                      |")
+    print("| 5. Close                                     |")
+    print("|**********************************************|")
+    gui_decision = ""
+    while gui_decision != "5":
+        gui_decision = input("| Choice: ")
+        if gui_decision == "1":
+            test()
+        if gui_decision == "2":
+            print("|**********************************************|")
+            print(schedule)
+            print("|**********************************************|")
+        if gui_decision == "3":
+            pass
+        if gui_decision == "4":
+            pass
+        if gui_decision == "5":
+            break
+
+
+gui()
