@@ -4,8 +4,6 @@ from playsound import playsound
 from datetime import datetime
 
 now = datetime.now()
-current_time = now.strftime("%H:%M")
-print("Current Time =", current_time)
 
 # from object_detector import *
 # from skeletal_tracker import skeletalEstimator
@@ -65,13 +63,13 @@ result = cv2.VideoWriter(output_filename,
 def sendAlert(alert_number):
     if alert_number == 1:
         # test sound
-        playsound('test.mp3')
+        playsound('sound files/test.mp3')
     if alert_number == 2:
         # "time to take your medication"
-        playsound('')
+        playsound('sound files/time to take your medication.mp3')
     if alert_number == 3:
         # "have you taken your medication?"
-        playsound('')
+        playsound('sound files/have you taken your medication.mp3')
     # if alert_number == x: , allow for additional sounds.
 
 
@@ -127,42 +125,41 @@ def medDetection(detection_tolerance):
     # medication bottle class ID
     # checks if any part of the list has the relevant class
     if 1 in class_identifier:
-        print('|***************************|')
-        print('|      person detected      |')
+
+        print("________________________________________________")
+        print('|               Person detected.               |')
         # print(person_coordinates)
-        print('|***************************|')
+        print("|______________________________________________|")
         objectDetector(repeat_tolerance, configPath_medBottles, weightsPath_medBottles, "medication", "medbottle.names")
         if 77 in class_identifier:
             global medication_taken
             medication_taken = True
-            print('|***************************|')
-            print("| Medication has been taken |")
+            print("________________________________________________")
+            print("|          Medication has been taken.          |")
             # print(box_coordinates)
-            print('|***************************|')
+            print("|______________________________________________|")
         else:
             print("FAIL")
             if detection_tolerance == 0:
-                sendAlert(1)
-                detection_tolerance = 5
+                sendAlert(2)
                 # recursive loop until medication is taken
-                medDetection(detection_tolerance)
+                medDetection(5)
             else:
                 detection_tolerance = detection_tolerance - 1
                 medDetection(detection_tolerance)
     else:
         print("FAIL")
         if detection_tolerance == 0:
-            sendAlert(1)
-            detection_tolerance = 5
+            sendAlert(2)
             # recursive loop until medication is taken
-            medDetection(detection_tolerance)
+            medDetection(5)
         else:
             detection_tolerance = detection_tolerance - 1
             medDetection(detection_tolerance)
 
 
 def _main_(medication_time):
-    if medication_time == True:
+    if medication_time in schedule:
         global medication_taken
         medication_taken = False
         while not medication_taken:
@@ -172,8 +169,10 @@ def _main_(medication_time):
         _main_()
 
 
+current_time = now.strftime("%H:%M")
+# print("Current Time =", current_time)
 # scheduling for medication times.
-print(current_time)
+# print(current_time)
 schedule = []
 
 
@@ -184,29 +183,40 @@ def test():
 
 
 def gui():
-    print("|**********************************************|")
+    print("________________________________________________")
+    print("| Current Time =", current_time, "                        |")
     print("| Please enter a number to select the option:  |")
     print("| 1. Run Program                               |")
     print("| 2. Show Schedule                             |")
     print("| 3. Add to Schedule                           |")
-    print("| 3. Remove from Schedule                      |")
+    print("| 4. Remove from Schedule                      |")
     print("| 5. Close                                     |")
-    print("|**********************************************|")
+    print("|______________________________________________|")
     gui_decision = ""
     while gui_decision != "5":
         gui_decision = input("| Choice: ")
-        if gui_decision == "1":
+        if gui_decision == "1":  # run program
             test()
-        if gui_decision == "2":
-            print("|**********************************************|")
+            # _main_(current_time)
+        if gui_decision == "2":  # show schedule
+            print("________________________________________________")
             print(schedule)
-            print("|**********************************************|")
-        if gui_decision == "3":
+            print("|______________________________________________|")
+        if gui_decision == "3":  # Add to Schedule
             pass
-        if gui_decision == "4":
+        if gui_decision == "4":  # Remove from Schedule
             pass
-        if gui_decision == "5":
+        if gui_decision == "5":  # close
             break
 
 
 gui()
+
+
+#############################################################
+#  copying
+#  print("________________________________________________")
+#  print("|______________________________________________|")
+
+#############################################################
+
