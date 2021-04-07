@@ -1,25 +1,21 @@
 # imports initialization
 import cv2
-import numpy as np
 import mediapipe as mp
 from playsound import playsound
 from datetime import datetime
 import math
-import imutils
-from imutils.video import VideoStream
+
 
 # get current time
 now = datetime.now()
 # from object_detector import *
 # from skeletal_tracker import skeletalEstimator
 medication_taken = False
+bottle_interaction = False
 # webcam initialization
-webcamCapture = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+webcamCapture = cv2.VideoCapture(0)
 webcamCapture.set(3, 480)
 webcamCapture.set(4, 360)
-webcamCapture2 = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-webcamCapture2.set(3, 480)
-webcamCapture2.set(4, 360)
 # sample files for testing
 # webcamCapture = cv2.VideoCapture("pillTaking1.mp4")
 # coco class names initialization
@@ -35,6 +31,7 @@ minY_box_coordinates = []
 width_box_coordinates = []
 height_box_coordinates = []
 fingerKnucklePosition = []
+
 # path locations for object detection
 configPath = 'ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt'
 weightPath = 'frozen_inference_graph.pb'
@@ -47,6 +44,9 @@ faceCaffeModel = 'res10_300x300_ssd_iter_140000.caffemodel'
 # hand media pipe init
 mpHands = mp.solutions.hands
 hands = mpHands.Hands(False, 2, threshold, threshold)
+# pose media pipe init
+mpPose =mp.solutions.pose
+pose = mpPose.Pose(False, True, True, threshold, threshold)
 mpDraw = mp.solutions.drawing_utils
 # neural network initializations
 # model initialization of neural network for object detection
@@ -91,7 +91,6 @@ def objectDetector(repeat_tolerance, weights_path_od, config_path_od, model, cla
     classFile = class_file
     with open(classFile, 'rt') as f:
         classNames = f.read().rstrip('\n').split('\n')
-    print(classNames)  ##### remove this when completed
     # while True:
     for i in range(repeat_tolerance):
         success, img = webcamCapture.read()
@@ -102,9 +101,6 @@ def objectDetector(repeat_tolerance, weights_path_od, config_path_od, model, cla
         net.setInputMean((127.5, 127.5, 127.5))
         net.setInputSwapRB(True)
         class_ids, confidence_values, bounding_box = net.detect(img, threshold)
-        print("Class ID = " + str(
-            class_ids)  # + " || ", "Confidence =" + str(confidence_values) ##### remove this when completed
-              + "||", "Coordinates " + str(bounding_box))  ##### remove this when completed
 
         if len(class_ids) != 0:
             for classId, confidence, box in zip(class_ids.flatten(), confidence_values.flatten(), bounding_box):
@@ -112,7 +108,6 @@ def objectDetector(repeat_tolerance, weights_path_od, config_path_od, model, cla
                 cv2.putText(img, classNames[classId - 1].upper(), (box[0] + 10, box[1] + 25),
                             cv2.FONT_ITALIC, 1, (106, 13, 173), 2)
                 class_identifier.append(classId)
-                print(class_identifier)  ##### remove this when completed
                 # add the box coordinates to the list.
                 if model == "basic":
                     if classId == 44:
@@ -122,19 +117,14 @@ def objectDetector(repeat_tolerance, weights_path_od, config_path_od, model, cla
                         minY_box_coordinates.append(box[1])
                         width_box_coordinates.append(box[2])
                         height_box_coordinates.append(box[3])
-
-                        print(box_coordinates)  ##### remove this when completed
                 # if model == "basic":
                 # if classId == 1:
                 # person_coordinates.append(box)
                 # print(person_coordinates) ##### remove this when completed
-        cv2.imshow('TEST', img)
+        cv2.imshow('Object Detection', img)
         result.write(img)
-        cv2.waitKey(10)
-
-
-def faceDetection(repeat_tolerance):
-    pass
+        cv2.waitKey(1)
+    cv2.destroyAllWindows()
 
 
 # if minX < localiseX < maxX:
@@ -156,52 +146,98 @@ def handDetection(box_coordinates, minX, minY, maxX, maxY):
     # 3 = thumb knuckle / 7 = index knuckle / 11 = middle knuckle
     # 15 = ring knuckle / 19 = little knuckle
     # while loop until hand is on medication box
-    global medication_taken
-    while medication_taken == False:
-        success, img = webcamCapture2.read()
+    global bottle_interaction
+    while bottle_interaction == False:
+        success, img = webcamCapture.read()
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         results = hands.process(img_rgb)
-        # print(results.multi_hand_landmarks)
         if results.multi_hand_landmarks:
             for handLms in results.multi_hand_landmarks:
                 for id, lm in enumerate(handLms.landmark):
                     h, w, c = img.shape
                     # localise coordinates in the image instead of ratios
-                    localiseX, localiseY = int(lm.x * w), int(lm.y * h)
+                    localiseX = int(lm.x * w)
+                    localiseY = int(lm.y * h)
                     # print(id, localiseX, localiseY)
                     if id == 3 or 7 or 11 or 15 or 19:
                         # outputs x and y value of each finger key point
                         finger_coordinates = [localiseX, localiseY]
                         # adds the array to the list
-                        # print(localiseX)
-                        print(localiseY)
                         fingerKnucklePosition.append(finger_coordinates)
-                mpDraw.draw_landmarks(img, handLms, mpHands.HAND_CONNECTIONS)
+
                 if minX <= localiseX <= maxX:
-                    print ("***********1***********")
-                    # print('hand X on box')
                     if minY <= localiseY <= maxY:
                         # hand on box
-                        print("***********2***********")
-                        print('hand Y on box')
-                        medication_taken = True
+                        bottle_interaction = True
 
                 if minY <= localiseY <= maxY:
-                    print("***********3***********")
                     if minX <= localiseX <= maxX:
                         # hand on box
-                        print("***********4***********")
-                        print('hand Y on box')
-                        medication_taken = True
+                        bottle_interaction = True
                 else:
                     # recursive hand detection loop
                     handDetection(box_coordinates, minX, minY, maxX, maxY)
 
-        cv2.imshow("Hands", img)
+        cv2.imshow("Hand Tracking", img)
+    cv2.destroyAllWindows()
+
+
+def handAndFaceTracking():
+    global medication_taken
+    while medication_taken == False:
+        tracksuc, trackimg = webcamCapture.read()
+        img_rgb = cv2.cvtColor(trackimg, cv2.COLOR_BGR2RGB)
+        handResults = hands.process(img_rgb)
+        poseResults = pose.process(img_rgb)
+
+        if poseResults.pose_landmarks:
+            mpDraw.draw_landmarks(trackimg, poseResults.pose_landmarks)
+            # if id == 10 or 9 (mouth points)
+            for id, lm in enumerate(poseResults.pose_landmarks.landmark):
+                h, w, c = trackimg.shape
+                if id == 10:
+                    mouthLeftX = (int(lm.x * w))
+                    mouthLeftY = (int(lm.y * h))
+                if id == 0:
+                    mouthRightX = (int(lm.x * w))
+                    mouthRightY = (int(lm.y * h))
+
+            if handResults.multi_hand_landmarks:
+                for handLms in handResults.multi_hand_landmarks:
+                    for id, lm in enumerate(handLms.landmark):
+                        h, w, c = trackimg.shape
+                        # localise coordinates in the image instead of ratios
+                        localiseX = int(lm.x * w)
+                        localiseY = int(lm.y * h)
+                        # print(id, localiseX, localiseY)
+                        if id == 4 or 8 or 12 or 16 or 20:
+                            # outputs x and y value of each finger key point
+                            handOnMouth(mouthLeftX, localiseX, mouthRightX, mouthLeftY, localiseY, mouthRightY)
+                        mpDraw.draw_landmarks(trackimg, handLms, mpHands.HAND_CONNECTIONS)
+
+
+        cv2.imshow("Pose Estimation", trackimg)
+        cv2.waitKey(1)
+
+
+def handOnMouth(mouthLeftX, localiseX, mouthRightX, mouthLeftY, localiseY, mouthRightY):
+    if mouthLeftX <= localiseX <= mouthRightX:
+        if mouthLeftY >= localiseY >= mouthRightY:
+            # hand on box
+            global medication_taken
+            medication_taken = True
+
+    if mouthLeftY >= localiseY >= mouthRightY:
+        if mouthLeftX <= localiseX <= mouthRightX:
+            # hand on box
+            medication_taken = True
+
 
 
 def failLoop(detection_tolerance):
-    print("FAIL")
+    print("+----------------------------------------------+")
+    print('|           Medication not Taken.              |')
+    print("|______________________________________________|")
     if detection_tolerance == 0:
         sendAlert(2)
         # recursive loop until medication is taken
@@ -215,39 +251,38 @@ def meanOfArray(array):
     return math.trunc(sum(array) / len(array))
 
 def medDetection(detection_tolerance):
-    print("medDetection")  ##### remove this when completed
     objectDetector(repeat_tolerance, configPath, weightPath, "basic", "coco.names")
-    print(class_identifier)  ##### remove this when completed
     # medication bottle class ID
     # checks if any part of the list has the relevant class
     if 1 in class_identifier:
         print("+----------------------------------------------+")
         print('|               Person detected.               |')
-        # print(person_coordinates)
         print("|______________________________________________|")
         #  objectDetector(repeat_tolerance, configPath_medBottles, weightsPath_medBottles, "medication",
         #                 "medbottle.names")
         if 44 in class_identifier:
             print("+----------------------------------------------+")
             print("|             Medication detected.             |")
-            # print(box_coordinates)
             print("|______________________________________________|")
             # using average of the data will remove outliers as well as make calculations easier
-            cv2.destroyWindow('TEST')
+            cv2.destroyWindow('Object Detection')
             minX = meanOfArray(minX_box_coordinates)
-            print('min X min Y')
-            print(minX)
             minY = meanOfArray(minY_box_coordinates)
-            print (minY)
             maxX = minX + meanOfArray(width_box_coordinates)
-            print(maxX)
             maxY = minY + meanOfArray(height_box_coordinates)
-            print (maxY)
-            print ("XXXX")
             handDetection(box_coordinates, minX, minY, maxX, maxY)
             # will only pass this function if broken within
-            global medication_taken
-            medication_taken = True
+            global bottle_interaction
+            bottle_interaction = True
+            print("+----------------------------------------------+")
+            print("|             Hand on Medication.              |")
+            print("|______________________________________________|")
+            cv2.destroyWindow('Hand Tracking')
+            handAndFaceTracking()
+            print("+----------------------------------------------+")
+            print("|              Medication Taken.               |")
+            print("|______________________________________________|")
+            cv2.destroyAllWindows()
         else:
             failLoop(detection_tolerance)
     else:
@@ -265,15 +300,17 @@ def resetArrays():
     minX_box_coordinates = []
     global minY_box_coordinates
     minY_box_coordinates = []
-    global maxX_box_coordinates
-    maxX_box_coordinates = []
-    global maxY_box_coordinates
-    maxY_box_coordinates = []
+    global width_box_coordinates
+    width_box_coordinates = []
+    global height_box_coordinates
+    height_box_coordinates = []
     global fingerKnucklePosition
     fingerKnucklePosition = []
+    global medication_taken
+    medication_taken = False
 
 
-def _main_(medication_time):
+def main(medication_time):
     resetArrays()
     if medication_time in schedule:
         global medication_taken
@@ -282,7 +319,7 @@ def _main_(medication_time):
             medDetection(detection_tolerance)
     else:
         # recursive loop until turned off
-        _main_()
+        main()
 
 
 current_time = now.strftime("%H:%M")
@@ -313,7 +350,7 @@ def gui():
         gui_decision = input("| Choice: ")
         if gui_decision == "1":  # run program
             test()
-            #  _main_("11:11")
+            #  main("10:10")
         if gui_decision == "2":  # show schedule
             print("+----------------------------------------------+")
             print(schedule)
@@ -327,6 +364,7 @@ def gui():
 
 
 # handDetection()
+#handAndFaceTracking()
 test()
 gui()
 
