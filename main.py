@@ -148,13 +148,13 @@ def handDetection(box_coordinates, minX, minY, maxX, maxY):
     # while loop until hand is on medication box
     global bottle_interaction
     while bottle_interaction == False:
-        success, img = webcamCapture.read()
-        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        success, handimg = webcamCapture.read()
+        img_rgb = cv2.cvtColor(handimg, cv2.COLOR_BGR2RGB)
         results = hands.process(img_rgb)
         if results.multi_hand_landmarks:
             for handLms in results.multi_hand_landmarks:
                 for id, lm in enumerate(handLms.landmark):
-                    h, w, c = img.shape
+                    h, w, c = handimg.shape
                     # localise coordinates in the image instead of ratios
                     localiseX = int(lm.x * w)
                     localiseY = int(lm.y * h)
@@ -178,8 +178,8 @@ def handDetection(box_coordinates, minX, minY, maxX, maxY):
                     # recursive hand detection loop
                     handDetection(box_coordinates, minX, minY, maxX, maxY)
 
-        cv2.imshow("Hand Tracking", img)
-    cv2.destroyAllWindows()
+        cv2.imshow("Hand Tracking", handimg)
+        cv2.waitKey(1)
 
 
 def handAndFaceTracking():
