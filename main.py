@@ -7,6 +7,7 @@ import math
 import tkinter as tk
 import time
 import numpy as np
+from twilio.rest import Client
 
 
 ##########################################################################
@@ -18,28 +19,40 @@ import numpy as np
 # These values must be in 24hour "HH:MM" format,                         #
 # Example "10:40" or "18:50"                                             #
 #                                                                        #
-schedule = ["09:00", "11:00", "12:30", "13:50", "18:30", "22:58", "23:03"]
+schedule = ["09:00", "11:00", "12:30", "13:50", "19:40", "22:58", "23:03"]
 #                                                                        #
 ##########################################################################
 #                                                                        #
 # Please insert mp3 files of notifications into files,                   #
 # Then add their names into the template below.                          #
-#                                                                        #
-def sendAlert(alert_number):                                             #
 
+
+def sendAlert(alert_number):                                             #
+    global alertRepeat                                                   #
+    if alertRepeat == 10:                                                #
+        resetArrays()                                                    #
+        main()                                                           #
     if alert_number == 1:                                                #
         # test sound                                                     #
         playsound('sound files/test.mp3')                                #
+        alertRepeat = alertRepeat + 1                                    #
     if alert_number == 2:                                                #
         # "time to take your medication"                                 #
         playsound('sound files/time to take your medication.mp3')        #
+        client.api.account.messages.create(to="+44**********", from_="+16027865091",
+                                           body="Time to take your medication!")
+        alertRepeat = alertRepeat + 1                                    #
     if alert_number == 3:                                                #
         # "have you taken your medication?"                              #
         playsound('sound files/have you taken your medication.mp3')      #
+        client.api.account.messages.create(to="+44**********",", from_="+16027865091",
+                                           body="Have you taken your medication?")
+        alertRepeat = alertRepeat + 1                                    #
 #                                                                        #
 #                               Template                                 #
 #   if alert_number == x:                                                #
 #       playsound('sound files/mp3 Name.mp3')                            #
+#       alertRepeat = alertRepeat + 1                                    #
 #                                                                        #
 ##########################################################################
 #                                                                        #
@@ -49,6 +62,8 @@ def sendAlert(alert_number):                                             #
 ##########################################################################
 ##########################################################################
 ##########################################################################
+
+
 
 
 # get current time
@@ -72,6 +87,9 @@ threshold = 0.6
 # how many times to run through detection loop, change for more loops
 repeat_tolerance = 10
 detection_tolerance = 10
+handToFace_tolerance = 250
+alertRepeat = 0
+count = 10
 # array of coordinates for calculations
 person_coordinates = []
 box_coordinates = []
@@ -82,11 +100,11 @@ width_box_coordinates = []
 height_box_coordinates = []
 fingerKnucklePosition = []
 # path locations for object detection
-configPath = 'ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt'
-weightPath = 'frozen_inference_graph.pb'
+configPath = 'config files/ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt'
+weightPath = 'config files/frozen_inference_graph.pb'
 # trained model for medication bottles
-configPath_medBottles = 'custom-yolov4-detector.cfg'
-weightsPath_medBottles = "custom-yolov4-detector_best.weights"
+configPath_medBottles = 'config files/custom-yolov4-detector.cfg'
+weightsPath_medBottles = "config files/custom-yolov4-detector_best.weights"
 # hand media pipe init
 mpHands = mp.solutions.hands
 hands = mpHands.Hands(False, 2, threshold, threshold)
@@ -104,16 +122,10 @@ net.setInputSwapRB(True)
 
 colour = (106, 13, 173)
 
-# output to mp4 file for testing and demonstration purposes
-output_filename = 'test_output.mp4'
-output_frames_per_second = 20.0
-fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-file_size = (480, 360)
-result = cv2.VideoWriter(output_filename,
-                         fourcc,
-                         output_frames_per_second,
-                         file_size)
-
+# alert sending tokens
+account_sid = 'ACa9a6b43491d08419536b2a7eec4998c6'
+auth_token = '245242406a8f85e06c543a183d458700'
+client = Client(account_sid, auth_token)
 
 def objectDetector(repeat_tolerance, class_file):
     global classFile
@@ -145,7 +157,6 @@ def objectDetector(repeat_tolerance, class_file):
                 # person_coordinates.append(box)
                 # print(person_coordinates) ##### remove this when completed
         cv2.imshow('Object Detection', img)
-        result.write(img)
         cv2.waitKey(1)
     cv2.destroyAllWindows()
 
@@ -166,12 +177,12 @@ def bottlesDetector(repeat_tolerance, class_file):
         success, img = webcamCapture.read()
         # take the shape of the image and apply to values
         height, width, channels = img.shape
-        # create a blob for use in YOLO from imgage
+        # create a blob for use in YOLO from image
         blob = cv2.dnn.blobFromImage(img, 1 / 255, (416, 416), (0, 0, 0), swapRB=True, crop=False)
         # set the input of the network to the blob
         netYolo.setInput(blob)
         outs = netYolo.forward(outputlayers)
-        # runs on singlular output fgrom every output
+        # runs on singular output from every output
         for out in outs:
             # for every detection in each, run through
             for detection in out:
@@ -192,7 +203,7 @@ def bottlesDetector(repeat_tolerance, class_file):
             indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.4, 0.6)
             for i in range(len(boxes)):
                 if i in indexes:
-                    # take the relevant valuyes from array.
+                    # take the relevant values from array.
                     x, y, w, h = boxes[i]
                     label = str(classNames[class_ids[i]])
                     confidence = confidences[i]
@@ -200,7 +211,6 @@ def bottlesDetector(repeat_tolerance, class_file):
                     cv2.putText(img, label + " " + str(confidence), (x, y + 25), cv2.FONT_ITALIC, 1, colour, 2)
                     # assign x,y,w,h values only for bottles.
                     if label == 'bottles':
-                        print(class_ids)
                         minX_box_coordinates.append(x), minY_box_coordinates.append(y)
                         width_box_coordinates.append(w), height_box_coordinates.append(h)
 
@@ -209,7 +219,7 @@ def bottlesDetector(repeat_tolerance, class_file):
     cv2.destroyAllWindows()
 
 
-def handDetection(box_coordinates, minX, minY, maxX, maxY):
+def handDetection(box_coordinates, minX, minY, maxX, maxY, handDetectionLoop):
     # 3 = thumb knuckle / 7 = index knuckle / 11 = middle knuckle
     # 15 = ring knuckle / 19 = little knuckle
     # while loop until hand is on medication box
@@ -250,13 +260,19 @@ def handDetection(box_coordinates, minX, minY, maxX, maxY):
                         bottle_interaction = True
                 else:
                     # recursive hand detection loop
-                    handDetection(box_coordinates, minX, minY, maxX, maxY)
+                    if handDetectionLoop == 0:
+                        # send a have you taken your medication alert
+                        sendAlert(3)
+                        handDetectionLoop = 250
+                    else:
+                        handDetectionLoop = handDetectionLoop - 1
+                    handDetection(box_coordinates, minX, minY, maxX, maxY, handDetectionLoop)
 
         cv2.imshow("Hand Tracking", handimg)
         cv2.waitKey(1)
 
 
-def handAndFaceTracking():
+def handAndFaceTracking(handDetectionLoop):
     global medication_taken
     while medication_taken == False:
         # take webcam feed
@@ -278,6 +294,22 @@ def handAndFaceTracking():
                 if id == 9:
                     mouthRightX = (int(lm.x * w))
                     mouthRightY = (int(lm.y * h))
+                if id == 8:
+                    headLeftX  = (int(lm.x * w))
+                # additional variables for non facing calculations
+                if id == 7:
+                    headRightX = (int(lm.x * w))
+                if id == 5:
+                    headLeftTopY = (int(lm.y * h))
+                if id == 2:
+                    headRigthTopY = (int(lm.y * h))
+                if id == 16:
+                    wristRightX = (int(lm.x * w))
+                    wristRightY = (int(lm.y * h))
+                if id == 15:
+                    wristLeftX = (int(lm.x * w))
+                    wristLeftY = (int(lm.y * h))
+                # left 8, right 7, 5,2 top , 10,9, bottom
             # run code if a hand is detected
             if handResults.multi_hand_landmarks:
                 for handLms in handResults.multi_hand_landmarks:
@@ -289,36 +321,70 @@ def handAndFaceTracking():
                         # print(id, localiseX, localiseY)
                         if id == 4 or 8 or 12 or 16 or 20:
                             # outputs x and y value of each finger key point
-                            handOnMouth(mouthLeftX, localiseX, mouthRightX, mouthLeftY, localiseY, mouthRightY)
+                            handOnMouth(mouthLeftX, localiseX, mouthRightX, mouthLeftY, localiseY, mouthRightY, headRightX,
+                                  headLeftX, headRigthTopY, headLeftTopY, wristRightX, wristRightY, wristLeftX, wristLeftY)
                         mpDraw.draw_landmarks(trackimg, handLms, mpHands.HAND_CONNECTIONS)
 
+        if handDetectionLoop == 0:
+            # send a have you taken your medication alert
+            sendAlert(3)
+            handDetectionLoop = 250
+        else:
+            handDetectionLoop = handDetectionLoop -1
         cv2.imshow("Pose Estimation", trackimg)
         cv2.waitKey(1)
 
 
 # function for getting the hand in mouth acceptance
-def handOnMouth(mouthLeftX, localiseX, mouthRightX, mouthLeftY, localiseY, mouthRightY):
+def handOnMouth(mouthLeftX, localiseX, mouthRightX, mouthLeftY, localiseY, mouthRightY, headRightX,
+                headLeftX, headRigthTopY, headLeftTopY, wristRightX, wristRightY, wristLeftX, wristLeftY):
+    global medication_taken
     if mouthLeftX <= localiseX <= mouthRightX:
-        if mouthLeftY >= localiseY >= mouthRightY:
+        if mouthLeftY <= localiseY <= mouthRightY:
             # hand on box
-            global medication_taken
             medication_taken = True
 
-    if mouthLeftY >= localiseY >= mouthRightY:
+    if mouthLeftY <= localiseY <= mouthRightY:
         if mouthLeftX <= localiseX <= mouthRightX:
+            # hand on box
+            medication_taken = True
+
+    if headLeftX <= wristRightX <= headRightX:
+        if min(headRigthTopY, headLeftTopY) <= wristRightY <= min(mouthLeftY, mouthRightY):
+            # hand on box
+            medication_taken = True
+
+    if min(headRigthTopY, headLeftTopY) <= wristRightY <= min(mouthLeftY, mouthRightY):
+        if headLeftX <= wristLeftX <= headRightX:
+            # hand on box
+            medication_taken = True
+
+    if headLeftX <= wristRightX <= headRightX:
+        if min(headRigthTopY, headLeftTopY) <= wristLeftY <= min(mouthLeftY, mouthRightY):
+            # hand on box
+            medication_taken = True
+
+    if min(headRigthTopY, headLeftTopY) <= wristLeftY <= min(mouthLeftY, mouthRightY):
+        if headLeftX <= wristLeftX <= headRightX:
             # hand on box
             medication_taken = True
 
 
 # fail loop to remove redundant code
-def failLoop(detection_tolerance):
-    if detection_tolerance == 0:
+def failLoop():
+    global count, alertRepeat
+    if count == 0:
         sendAlert(2)
         # recursive loop until medication is taken
-        medDetection(5)
+        count = 10
+        alertRepeat = alertRepeat + 1
+        if alertRepeat == 10:
+            resetArrays()
+            main()
+        medDetection(10)
     else:
-        detection_tolerance = detection_tolerance - 1
-        medDetection(detection_tolerance)
+        count = count - 1
+        medDetection(10)
 
 
 def meanOfArray(array):
@@ -326,7 +392,9 @@ def meanOfArray(array):
 
 
 def medDetection(detection_tolerance):
-    objectDetector(detection_tolerance, "coco.names")
+    global alertRepeat
+    alertRepeat = 0
+    objectDetector(detection_tolerance, "config files/coco.names")
     # medication bottle class ID
     # checks if any part of the list has the relevant class
     if 1 in class_identifier:
@@ -334,7 +402,7 @@ def medDetection(detection_tolerance):
         print("+----------------------------------------------+")
         print('|               Person detected.               |')
         print("|______________________________________________|")
-        bottlesDetector(detection_tolerance, 'obj.names')
+        bottlesDetector(detection_tolerance, 'config files/obj.names')
         if 2 in class_ids:
             # medication detected
             print("+----------------------------------------------+")
@@ -347,7 +415,8 @@ def medDetection(detection_tolerance):
             minY = meanOfArray(minY_box_coordinates)
             maxX = minX + meanOfArray(width_box_coordinates)
             maxY = minY + meanOfArray(height_box_coordinates)
-            handDetection(box_coordinates, minX, minY, maxX, maxY)
+            alertRepeat = 0
+            handDetection(box_coordinates, minX, minY, maxX, maxY, handToFace_tolerance)
             # will only pass this function if broken within
             global bottle_interaction
             bottle_interaction = True
@@ -356,7 +425,8 @@ def medDetection(detection_tolerance):
             print("|             Hand on Medication.              |")
             print("|______________________________________________|")
             cv2.destroyWindow('Hand Tracking')
-            handAndFaceTracking()
+            alertRepeat = 0
+            handAndFaceTracking(handToFace_tolerance)
             # Medication Taken.
             print("+----------------------------------------------+")
             print("|              Medication Taken.               |")
@@ -364,9 +434,9 @@ def medDetection(detection_tolerance):
             # destroy all webcam windows
             cv2.destroyAllWindows()
         else:
-            failLoop(detection_tolerance)
+            failLoop()
     else:
-        failLoop(detection_tolerance)
+        failLoop()
 
 
 # reset all arrays once schedule is active
@@ -397,22 +467,32 @@ def resetArrays():
     medication_taken = False
     global bottle_interaction
     bottle_interaction = False
+    global alertRepeat
+    alertRepeat = 0
+    global count
+    count = 10
 
 
 def main():
+    # break any previously open windows
+    cv2.destroyAllWindows()
     # recalling of time allows for up to date time to be maintained
     now = datetime.now()
     current_time = now.strftime("%H:%M")
     # allows for the system to show it is working, and not presume error
     print(current_time, " Waiting...")
     if current_time in schedule:
-        print('')
+        # send initial alert
+        playsound('sound files/time to take your medication.mp3')
         resetArrays()
         global medication_taken
         medication_taken = False
         while not medication_taken:
             medDetection(detection_tolerance)
         # recursive loop to constantly loop through
+        # has to wait to ensure it does not repeat back through the loop
+        time.sleep(55)
+        print(current_time, " Waiting...")
         main()
     else:
         # recursive loop until turned off
@@ -459,9 +539,6 @@ def gui():
             break
 
 
-#medicationDetector(1000, 'obj.names')
-
-
 window = tk.Tk()
 window.title("Medication Tracker")
 
@@ -470,9 +547,9 @@ def runClick():
     runPage = tk.Tk()
     runPage.title("Run Page")
     main_button = tk.Button(runPage, text="Run System", command=main , bg="pale green")
-    main_button.grid(column=0, padx=10, row=0, pady=10)
+    main_button.grid(column=0, padx=10, row=0, pady=15)
     test_button = tk.Button(runPage, text="Run Tests", command=test, bg="salmon")
-    test_button.grid(column=1, padx=10, row=0, pady=10)
+    test_button.grid(column=1, padx=10, row=0, pady=15)
 
 
 def scheduleClick():
