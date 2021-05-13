@@ -7,7 +7,6 @@ import math
 import tkinter as tk
 import time
 import numpy as np
-from twilio.rest import Client
 
 
 ##########################################################################
@@ -19,7 +18,8 @@ from twilio.rest import Client
 # These values must be in 24hour "HH:MM" format,                         #
 # Example "10:40" or "18:50"                                             #
 #                                                                        #
-schedule = ["09:00", "11:00", "12:30", "13:50", "19:40", "22:58", "23:03"]
+schedule = ["09:00", "11:00", "12:30", "13:50", "18:30", "22:58", "23:03"]
+dogSchedule = ["08:00","18:00"]
 #                                                                        #
 ##########################################################################
 #                                                                        #
@@ -39,14 +39,10 @@ def sendAlert(alert_number):                                             #
     if alert_number == 2:                                                #
         # "time to take your medication"                                 #
         playsound('sound files/time to take your medication.mp3')        #
-        client.api.account.messages.create(to="+44**********", from_="+16027865091",
-                                           body="Time to take your medication!")
         alertRepeat = alertRepeat + 1                                    #
     if alert_number == 3:                                                #
         # "have you taken your medication?"                              #
         playsound('sound files/have you taken your medication.mp3')      #
-        client.api.account.messages.create(to="+44**********",", from_="+16027865091",
-                                           body="Have you taken your medication?")
         alertRepeat = alertRepeat + 1                                    #
 #                                                                        #
 #                               Template                                 #
@@ -65,13 +61,14 @@ def sendAlert(alert_number):                                             #
 
 
 
-
 # get current time
 now = datetime.now()
 # webcam initialization
 webcamCapture = cv2.VideoCapture(0)
 webcamCapture.set(3, 480)
 webcamCapture.set(4, 360)
+# dog video test
+dog_video_test = cv2.VideoCapture("yumi-eating.mp4")
 # coco class names initialization
 classNames = []
 class_identifier = []
@@ -82,6 +79,7 @@ boxes = []
 # init for params
 medication_taken = False
 bottle_interaction = False
+dog_eaten = False
 # confidence threshold value
 threshold = 0.6
 # how many times to run through detection loop, change for more loops
@@ -89,7 +87,6 @@ repeat_tolerance = 10
 detection_tolerance = 10
 handToFace_tolerance = 250
 alertRepeat = 0
-count = 10
 # array of coordinates for calculations
 person_coordinates = []
 box_coordinates = []
@@ -122,10 +119,16 @@ net.setInputSwapRB(True)
 
 colour = (106, 13, 173)
 
-# alert sending tokens
-account_sid = 'ACa9a6b43491d08419536b2a7eec4998c6'
-auth_token = '245242406a8f85e06c543a183d458700'
-client = Client(account_sid, auth_token)
+# output to mp4 file for testing and demonstration purposes
+output_filename = 'test_output.mp4'
+output_frames_per_second = 20.0
+fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+file_size = (480, 360)
+result = cv2.VideoWriter(output_filename,
+                         fourcc,
+                         output_frames_per_second,
+                         file_size)
+
 
 def objectDetector(repeat_tolerance, class_file):
     global classFile
@@ -157,8 +160,75 @@ def objectDetector(repeat_tolerance, class_file):
                 # person_coordinates.append(box)
                 # print(person_coordinates) ##### remove this when completed
         cv2.imshow('Object Detection', img)
+        result.write(img)
         cv2.waitKey(1)
     cv2.destroyAllWindows()
+
+bowl_coordinates = []
+minX_bowl_coordinates = []
+minY_bowl_coordinates = []
+width_bowl_coordinates = []
+height_bowl_coordinates = []
+
+def dogEatingDetection(n,class_file):
+    global classFile
+    classFile = class_file
+    with open(classFile, 'rt') as f:
+        classNames = f.read().rstrip('\n').split('\n')
+    for i in range(n):
+        success, img = dog_video_test.read()
+        class_ids, confidence_values, bounding_box = net.detect(img, threshold)
+        if len(class_ids) != 0:
+            for classId, confidence, box in zip(class_ids.flatten(), confidence_values.flatten(), bounding_box):
+                cv2.rectangle(img, box, color=(106, 13, 173), thickness=2, lineType=None, shift=None)
+                cv2.putText(img, classNames[classId - 1].upper(), (box[0] + 10, box[1] + 25),
+                            cv2.FONT_ITALIC, 1, (106, 13, 173), 2)
+                class_identifier.append(classId)
+                #print(class_identifier)
+                # add the bounding box coordinates to the list.
+                if classId == 18:
+                    box_coordinates.append(box)
+                    minX_box_coordinates.append(box[0])
+                    minY_box_coordinates.append(box[1])
+                    width_box_coordinates.append(box[2])
+                    height_box_coordinates.append(box[3])
+
+                if classId == 85:
+                    bowl_coordinates.append(box)
+                    minX_bowl_coordinates.append(box[0])
+                    minY_bowl_coordinates.append(box[1])
+                    width_bowl_coordinates.append(box[2])
+                    height_bowl_coordinates.append(box[3])
+
+                if len(bowl_coordinates) > 1:
+                    if len(box_coordinates) > 1:
+                        dogAtBowl()
+                if len(box_coordinates) > 1:
+                    if len(bowl_coordinates) > 1:
+                        dogAtBowl()
+
+
+
+        cv2.imshow('Dog Video', img)
+        cv2.waitKey(1)
+
+
+def dogAtBowl():
+    global dog_eaten
+    minX = meanOfArray(minX_box_coordinates)
+    minY = meanOfArray(minY_box_coordinates)
+    maxX = minX + meanOfArray(width_box_coordinates)
+    maxY = minY + meanOfArray(height_box_coordinates)
+    minBX = meanOfArray(minX_bowl_coordinates)
+    minBY = meanOfArray(minY_bowl_coordinates)
+    maxBX = minBX + meanOfArray(width_bowl_coordinates)
+    maxBY = minBY + meanOfArray(height_bowl_coordinates)
+
+    if minX <= minBX <= maxX:
+        if minY <= minBY <= maxY:
+            dog_eaten = True
+
+
 
 
 def bottlesDetector(repeat_tolerance, class_file):
@@ -369,22 +439,18 @@ def handOnMouth(mouthLeftX, localiseX, mouthRightX, mouthLeftY, localiseY, mouth
             # hand on box
             medication_taken = True
 
-
+            
 # fail loop to remove redundant code
-def failLoop():
-    global count, alertRepeat
-    if count == 0:
+def failLoop(detection_tolerance):
+    if detection_tolerance == 0:
         sendAlert(2)
         # recursive loop until medication is taken
-        count = 10
-        alertRepeat = alertRepeat + 1
-        if alertRepeat == 10:
-            resetArrays()
-            main()
+        detection_tolerance = 10
         medDetection(10)
     else:
-        count = count - 1
+        detection_tolerance = detection_tolerance - 1
         medDetection(10)
+        print('2')
 
 
 def meanOfArray(array):
@@ -392,8 +458,6 @@ def meanOfArray(array):
 
 
 def medDetection(detection_tolerance):
-    global alertRepeat
-    alertRepeat = 0
     objectDetector(detection_tolerance, "config files/coco.names")
     # medication bottle class ID
     # checks if any part of the list has the relevant class
@@ -415,6 +479,7 @@ def medDetection(detection_tolerance):
             minY = meanOfArray(minY_box_coordinates)
             maxX = minX + meanOfArray(width_box_coordinates)
             maxY = minY + meanOfArray(height_box_coordinates)
+            global alertRepeat
             alertRepeat = 0
             handDetection(box_coordinates, minX, minY, maxX, maxY, handToFace_tolerance)
             # will only pass this function if broken within
@@ -434,9 +499,9 @@ def medDetection(detection_tolerance):
             # destroy all webcam windows
             cv2.destroyAllWindows()
         else:
-            failLoop()
+            failLoop(detection_tolerance)
     else:
-        failLoop()
+        failLoop(detection_tolerance)
 
 
 # reset all arrays once schedule is active
@@ -469,8 +534,8 @@ def resetArrays():
     bottle_interaction = False
     global alertRepeat
     alertRepeat = 0
-    global count
-    count = 10
+    global detection_tolerance
+    detection_tolerance = 10
 
 
 def main():
@@ -482,17 +547,13 @@ def main():
     # allows for the system to show it is working, and not presume error
     print(current_time, " Waiting...")
     if current_time in schedule:
-        # send initial alert
-        playsound('sound files/time to take your medication.mp3')
+        print('')
         resetArrays()
         global medication_taken
         medication_taken = False
         while not medication_taken:
             medDetection(detection_tolerance)
         # recursive loop to constantly loop through
-        # has to wait to ensure it does not repeat back through the loop
-        time.sleep(55)
-        print(current_time, " Waiting...")
         main()
     else:
         # recursive loop until turned off
@@ -513,6 +574,17 @@ def test():
     while not medication_taken:
         medDetection(detection_tolerance)
     # reset again to repeat tests or start system
+    resetArrays()
+
+def dogTest():
+    # reset so that no tests remain accurate
+    resetArrays()
+    while not dog_eaten:
+        dogEatingDetection(15, "config files/cocomk2.names")
+        # reset again to repeat tests or start system
+    print("+----------------------------------------------+")
+    print("|             Dog Eating Food.                 |")
+    print("|______________________________________________|")
     resetArrays()
 
 
@@ -543,24 +615,52 @@ window = tk.Tk()
 window.title("Medication Tracker")
 
 
+
+def runPage():
+    allRun = tk.Tk()
+    allRun.title("Choice of System")
+    main_button = tk.Button(allRun, text="Run Whole System", command=main, bg="pale green")
+    main_button.grid(column=1, padx=10, row=0, pady=15)
+    main_button = tk.Button(allRun, text="Medication Monitor", command=runClick, bg="sky blue")
+    main_button.grid(column=2, padx=10, row=0, pady=15)
+    dog_button = tk.Button(allRun, text="Dog Feed Monitor", command=dogRunClick, bg="dark goldenrod")
+    dog_button.grid(column=3, padx=10, row=0, pady=15)
+
+
+
 def runClick():
     runPage = tk.Tk()
-    runPage.title("Run Page")
+    runPage.title("Medication Minder")
     main_button = tk.Button(runPage, text="Run System", command=main , bg="pale green")
-    main_button.grid(column=0, padx=10, row=0, pady=15)
+    main_button.grid(column=0, padx=20, row=0, pady=20)
     test_button = tk.Button(runPage, text="Run Tests", command=test, bg="salmon")
-    test_button.grid(column=1, padx=10, row=0, pady=15)
+    test_button.grid(column=1, padx=20, row=0, pady=20)
+
+
+def dogRunClick():
+    dogRunPage = tk.Tk()
+    dogRunPage.title("Dog Feed Monitor")
+    main_button = tk.Button(dogRunPage, text="Run System", bg="pale green")
+    main_button.grid(column=0, padx=20, row=0, pady=20)
+    test_button = tk.Button(dogRunPage, text="Run Tests", command=dogTest, bg="salmon")
+    test_button.grid(column=1, padx=20, row=0, pady=20)
 
 
 def scheduleClick():
     global schedule
     schedulePage = tk.Tk()
     schedulePage.title("Schedule")
+    schedule_label = tk.Label(schedulePage, text="Medication Schedule")
+    schedule_label.grid(row=0, column=0, pady=10)
     schedule_button = tk.Label(schedulePage, text=schedule, padx=25, pady=10)
-    schedule_button.grid(row=0, column=1)
+    schedule_button.grid(row=1, column=0)
+    schedule_label = tk.Label(schedulePage, text="Dog Feeding Schedule")
+    schedule_label.grid(row=2, column=0, pady=10)
+    schedule_button = tk.Label(schedulePage, text=dogSchedule, padx=25, pady=10)
+    schedule_button.grid(row=3, column=0)
 
 
-run_label = tk.Button(window, text="Run Program", command=runClick, bg="pale green")
+run_label = tk.Button(window, text="Run Program", command=runPage, bg="pale green")
 run_label.grid(row=0, padx=10, column=0, pady=10)
 show_schedule_label = tk.Button(text="Show Schedule" , command=scheduleClick, bg='sky blue')
 show_schedule_label.grid(row=0, padx=10, column=1, pady=10)
