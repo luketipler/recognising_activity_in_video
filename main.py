@@ -39,13 +39,13 @@ def sendAlert(alert_number):                                             #
     if alert_number == 2:                                                #
         # "time to take your medication"                                 #
         playsound('sound files/time to take your medication.mp3')        #
-        client.api.account.messages.create(to="+44**********", from_="+16027865091",
+        client.api.account.messages.create(to="+447484878602", from_="+16027865091",
                                            body="Time to take your medication!")
         alertRepeat = alertRepeat + 1                                    #
     if alert_number == 3:                                                #
         # "have you taken your medication?"                              #
         playsound('sound files/have you taken your medication.mp3')      #
-        client.api.account.messages.create(to="+44**********",", from_="+16027865091",
+        client.api.account.messages.create(to="+447484878602", from_="+16027865091",
                                            body="Have you taken your medication?")
         alertRepeat = alertRepeat + 1                                    #
 #                                                                        #
@@ -62,8 +62,6 @@ def sendAlert(alert_number):                                             #
 ##########################################################################
 ##########################################################################
 ##########################################################################
-
-
 
 
 # get current time
@@ -124,8 +122,9 @@ colour = (106, 13, 173)
 
 # alert sending tokens
 account_sid = 'ACa9a6b43491d08419536b2a7eec4998c6'
-auth_token = '245242406a8f85e06c543a183d458700'
+auth_token = 'f51b9309de50b2e6ba60905033a7dc30'
 client = Client(account_sid, auth_token)
+
 
 def objectDetector(repeat_tolerance, class_file):
     global classFile
@@ -143,19 +142,7 @@ def objectDetector(repeat_tolerance, class_file):
                 cv2.putText(img, classNames[classId - 1].upper(), (box[0] + 10, box[1] + 25),
                             cv2.FONT_ITALIC, 1, (106, 13, 173), 2)
                 class_identifier.append(classId)
-                # add the box coordinates to the list.
-                # if model == "basic":
-                #     if classId == 44:
-                #         box_coordinates.append(box)
-                #         # [ x, y , w , h ]
-                #         minX_box_coordinates.append(box[0])
-                #         minY_box_coordinates.append(box[1])
-                #         width_box_coordinates.append(box[2])
-                #         height_box_coordinates.append(box[3])
-                # if model == "basic":
-                # if classId == 1:
-                # person_coordinates.append(box)
-                # print(person_coordinates) ##### remove this when completed
+
         cv2.imshow('Object Detection', img)
         cv2.waitKey(1)
     cv2.destroyAllWindows()
@@ -268,6 +255,13 @@ def handDetection(box_coordinates, minX, minY, maxX, maxY, handDetectionLoop):
                         handDetectionLoop = handDetectionLoop - 1
                     handDetection(box_coordinates, minX, minY, maxX, maxY, handDetectionLoop)
 
+        if handDetectionLoop == 0:
+            # send a have you taken your medication alert
+            sendAlert(3)
+            handDetectionLoop = 250
+        else:
+            handDetectionLoop = handDetectionLoop -1
+
         cv2.imshow("Hand Tracking", handimg)
         cv2.waitKey(1)
 
@@ -353,6 +347,8 @@ def handOnMouth(mouthLeftX, localiseX, mouthRightX, mouthLeftY, localiseY, mouth
         if min(headRigthTopY, headLeftTopY) <= wristRightY <= min(mouthLeftY, mouthRightY):
             # hand on box
             medication_taken = True
+
+    # wrist within head for sprint 5
 
     if min(headRigthTopY, headLeftTopY) <= wristRightY <= min(mouthLeftY, mouthRightY):
         if headLeftX <= wristLeftX <= headRightX:
@@ -516,7 +512,7 @@ def test():
     resetArrays()
 
 
-# text based GUI for testing compared to running
+# text based GUI for testing compared to running // this is not used in final but was used in early development
 def gui():
     print("+----------------------------------------------+")
     print("| Current Time =", current_time, "                        |")
@@ -567,18 +563,3 @@ show_schedule_label.grid(row=0, padx=10, column=1, pady=10)
 quit_button = tk.Button(window, text="Exit Program", command=window.quit, bg="salmon")
 quit_button.grid(row=0, padx=10, column=2, pady=10)
 window.mainloop()
-
-
-
-# handDetection()
-# handAndFaceTracking()
-#test()
-#gui()
-
-#############################################################
-#  copying
-#  print("+----------------------------------------------+")
-#  print("|                                              |")
-#  print("|______________________________________________|")
-
-#############################################################
