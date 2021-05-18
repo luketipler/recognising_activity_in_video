@@ -39,13 +39,13 @@ def sendAlert(alert_number):                                             #
     if alert_number == 2:                                                #
         # "time to take your medication"                                 #
         playsound('sound files/time to take your medication.mp3')        #
-        client.api.account.messages.create(to="+447484878602", from_="+16027865091",
+        client.api.account.messages.create(to="+xxxxxxxxxxx", from_="+16027865091",
                                            body="Time to take your medication!")
         alertRepeat = alertRepeat + 1                                    #
     if alert_number == 3:                                                #
         # "have you taken your medication?"                              #
         playsound('sound files/have you taken your medication.mp3')      #
-        client.api.account.messages.create(to="+447484878602", from_="+16027865091",
+        client.api.account.messages.create(to="+xxxxxxxxxxx", from_="+16027865091",
                                            body="Have you taken your medication?")
         alertRepeat = alertRepeat + 1                                    #
 #                                                                        #
@@ -121,8 +121,8 @@ net.setInputSwapRB(True)
 colour = (106, 13, 173)
 
 # alert sending tokens
-account_sid = 'ACa9a6b43491d08419536b2a7eec4998c6'
-auth_token = 'f51b9309de50b2e6ba60905033a7dc30'
+account_sid = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+auth_token = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 client = Client(account_sid, auth_token)
 
 
