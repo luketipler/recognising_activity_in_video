@@ -565,3 +565,4 @@ show_schedule_label.grid(row=0, padx=10, column=1, pady=10)
 quit_button = tk.Button(window, text="Exit Program", command=window.quit, bg="salmon")
 quit_button.grid(row=0, padx=10, column=2, pady=10)
 window.mainloop()
+
