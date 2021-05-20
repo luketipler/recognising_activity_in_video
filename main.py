@@ -147,7 +147,9 @@ def objectDetector(repeat_tolerance, class_file):
         cv2.waitKey(1)
     cv2.destroyAllWindows()
 
-
+    
+# using documentation the basic yolo flow was determined and then adapted for use in this system
+# using this code allows for development to continue effectively
 def bottlesDetector(repeat_tolerance, class_file):
     # initialise the YOLOv4 detection
     netYolo = cv2.dnn.readNet(configPath_medBottles, weightsPath_medBottles)
